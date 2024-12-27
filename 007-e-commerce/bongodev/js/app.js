@@ -62,6 +62,54 @@ const cartList = document.getElementById('cart-items');
 const productGrid = document.getElementById('product-grid');
 const totalPriceComponent = document.getElementById('total-price');
 const checkoutBtn = document.getElementById('checkout-btn');
+const categoryBtnContainer = document.getElementById('category-filters');
+const applyFilterBtn = document.getElementById('apply-filters-btn');
+const clearFilterBtn = document.getElementById('clear-filters-btn');
+
+class Filter {
+  constructor() {
+    this.filters = this.getFromLocalStorage() || new Set();
+  }
+
+  static KEY = 'e-commerce-filter';
+
+  addFilter(category) {
+    if (this.filters.has(category)) {
+      this.filters.delete(category);
+      return;
+    }
+    this.filters.add(category);
+    this.saveToLocalStorage();
+  }
+
+  saveToLocalStorage() {
+    localStorage.setItem(Filter.KEY, JSON.stringify([...this.filters]));
+  }
+
+  getFromLocalStorage() {
+    return new Set(JSON.parse(localStorage.getItem(Filter.KEY)));
+  }
+
+  hasCategory(category) {
+    return this.filters.has(category);
+  }
+
+  deleteCategory(category) {
+    this.filters.delete(category);
+    this.saveToLocalStorage();
+  }
+
+  isEmpty() {
+    return this.filters.size === 0;
+  }
+
+  clear() {
+    this.filters.clear();
+    this.saveToLocalStorage();
+  }
+}
+
+const filter = new Filter();
 
 const saveCartItemsToLocalStorage = (cart) => {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
@@ -115,11 +163,20 @@ const removeCartItem = (cartItem) => {
 };
 
 const renderProducts = (products) => {
-  const productCards = products.map((product) => {
+  let filteredProducts = products;
+
+  if (!filter.isEmpty()) {
+    filteredProducts = products.filter((product) =>
+      product.categories.some((category) => filter.hasCategory(category))
+    );
+  }
+
+  const productCards = filteredProducts.map((product) => {
     const productCard = getProductCard(product);
     return productCard;
   });
 
+  productGrid.innerHTML = '';
   productGrid.append(...productCards);
 };
 
@@ -211,10 +268,62 @@ const renderCart = (cart) => {
   saveCartItemsToLocalStorage(cart);
 };
 
+const getUniqueCategories = (products) => {
+  const flattenCategories = products
+    .map((product) => product.categories)
+    .flat();
+  return [...new Set(flattenCategories)];
+};
+
+const getCategoryBtn = (category) => {
+  const categoryBtn = document.createElement('button');
+  categoryBtn.className =
+    'hover:bg-gray-300  font-semibold py-2 px-4 rounded mr-2';
+
+  if (filter.hasCategory(category)) {
+    categoryBtn.classList.add('bg-blue-600', 'text-white');
+  } else {
+    categoryBtn.classList.add('bg-gray-200', 'text-gray-800');
+  }
+
+  categoryBtn.innerText = category;
+  categoryBtn.addEventListener('click', () => {
+    if (filter.hasCategory(category)) {
+      filter.deleteCategory(category);
+    } else {
+      filter.addFilter(category);
+    }
+
+    renderCategories(products);
+  });
+  return categoryBtn;
+};
+
+const renderCategories = (products) => {
+  const categories = getUniqueCategories(products);
+  const categoryBtns = categories.map((category) => {
+    const categoryBtn = getCategoryBtn(category);
+    return categoryBtn;
+  });
+  categoryBtnContainer.innerHTML = '';
+  categoryBtnContainer.append(...categoryBtns);
+};
+
 renderProducts(products);
 renderCart(cart);
+renderCategories(products);
 
 checkoutBtn.addEventListener('click', () => {
   cart = [];
   renderCart(cart);
+});
+
+applyFilterBtn.addEventListener('click', () => {
+  renderProducts(products);
+});
+
+clearFilterBtn.addEventListener('click', () => {
+  filter.clear();
+  renderCategories(products);
+  renderProducts(products);
 });
