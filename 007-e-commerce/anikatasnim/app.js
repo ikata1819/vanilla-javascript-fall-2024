@@ -331,3 +331,4 @@ applyFilterBtn.addEventListener('click', () => {
     renderProducts(products);
   });
   
+  
